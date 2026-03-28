@@ -53,7 +53,7 @@ app.use("/api/admin/auth/request-password-reset", authLimiter);
 ========================================= */
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: process.env.FRONTEND_URL || "http://www.azaniaShop.com",
     credentials: true,
   })
 );
