@@ -30,7 +30,7 @@ router.post("/forgot-password", async (req, res) => {
 
     await user.save();
 
-    const resetURL = `http://localhost:3000/reset-password/${resetToken}`;
+    const resetURL = `http://api.azaniashop.com/reset-password/${resetToken}`;
 
     console.log("Reset Link:", resetURL);
 
