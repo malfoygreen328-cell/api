@@ -1,12 +1,14 @@
 import dotenv from "dotenv";
 import path from "path";
 
-// 🔥 Load environment variables (safe for Azure & local)
-dotenv.config({
-  path: path.resolve(process.cwd(), ".env"),
-});
+// ✅ Load .env ONLY in local development
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config({
+    path: path.resolve(process.cwd(), ".env"),
+  });
+}
 
-// 🔍 Debug (remove in production later)
+// 🔍 Debug (remove later)
 console.log("ENV CHECK:", {
   MONGO_URI: process.env.MONGO_URI ? "Loaded ✅" : "Missing ❌",
   PORT: process.env.PORT,
@@ -16,31 +18,33 @@ console.log("ENV CHECK:", {
 import app from "./app.js";
 import connectDB from "./config/db.js";
 
-// Catch unhandled promise rejections (DO NOT crash app immediately)
+// Handle unhandled promise rejections
 process.on("unhandledRejection", (err) => {
   console.error("❌ Unhandled Rejection:", err);
 });
 
-// Catch uncaught exceptions
+// Handle uncaught exceptions
 process.on("uncaughtException", (err) => {
   console.error("❌ Uncaught Exception:", err);
 });
 
-// Start server
 const startServer = async () => {
   try {
-    // 🔌 Connect DB (NON-BLOCKING — critical for Azure)
+    // 🔌 Connect DB (non-blocking)
     connectDB()
       .then(() => console.log("✅ MongoDB connected"))
-      .catch((err) => console.error("❌ MongoDB connection failed:", err.message));
+      .catch((err) =>
+        console.error("❌ MongoDB connection failed:", err.message)
+      );
 
-    const PORT = process.env.PORT || 3000; // 🔥 Azure requires dynamic PORT
+    // ✅ Use Azure-provided PORT
+    const PORT = process.env.PORT || 8080;
 
-    const server = app.listen(PORT, () => {
+    const server = app.listen(PORT, "0.0.0.0", () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
 
-    // Graceful shutdown
+    // ✅ Graceful shutdown
     const shutdown = () => {
       console.log("⚡ Shutting down server...");
       server.close(() => {
@@ -51,7 +55,6 @@ const startServer = async () => {
 
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
-
   } catch (err) {
     console.error("❌ Failed to start server:", err.message);
     process.exit(1);
