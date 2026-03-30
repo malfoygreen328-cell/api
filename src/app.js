@@ -8,6 +8,8 @@ import rateLimit from "express-rate-limit";
 import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
+import authRoutes from "./routes/authRoute.js"; // <-- user/vendor auth
+import passwordRoutes from "./routes/passwordRoute.js"; // <-- forgot/reset password
 import orderRoutes from "./routes/orderRoutes.js";
 import payfastRoutes from "./routes/payfastRoutes.js";
 import refundRoutes from "./routes/refundRoutes.js";
@@ -47,6 +49,8 @@ const authLimiter = rateLimit({
 });
 app.use("/api/admin/auth/login", authLimiter);
 app.use("/api/admin/auth/request-password-reset", authLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/forgot-password", authLimiter);
 
 /* =========================================
    🌍 CORS CONFIG
@@ -91,9 +95,16 @@ app.get("/", (req, res) => {
   res.send("🚀 Azania API is running...");
 });
 
+// Auth Routes
+app.use("/api/auth", authRoutes);       // register, login
+app.use("/api/auth", passwordRoutes);   // forgot/reset password
+
+// User/Admin Routes
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/auth", adminAuthRoutes);
+
+// Other Routes
 app.use("/api/orders", orderRoutes);
 app.use("/api/payfast", payfastRoutes);
 app.use("/api/refunds", refundRoutes);
