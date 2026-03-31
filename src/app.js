@@ -8,7 +8,7 @@ import rateLimit from "express-rate-limit";
 import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
-import authRoutes from "./routes/authRoute.js"; // <-- user/vendor auth
+import authRoutes from "./routes/authRoutes.js"; // <-- user/vendor auth
 import passwordRoutes from "./routes/passwordRoute.js"; // <-- forgot/reset password
 import orderRoutes from "./routes/orderRoutes.js";
 import payfastRoutes from "./routes/payfastRoutes.js";
