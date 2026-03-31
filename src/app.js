@@ -8,8 +8,7 @@ import rateLimit from "express-rate-limit";
 import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
-import authRoutes from "./routes/authRoutes.js"; // <-- user/vendor auth
-import passwordRoutes from "./routes/passwordRoute.js"; // <-- forgot/reset password
+import authRoutes from "./routes/authRoutes.js"; // user/vendor auth
 import orderRoutes from "./routes/orderRoutes.js";
 import payfastRoutes from "./routes/payfastRoutes.js";
 import refundRoutes from "./routes/refundRoutes.js";
@@ -36,17 +35,18 @@ app.use(
 
 // Global Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 mins
-  max: 100, // limit each IP
+  windowMs: 15 * 60 * 1000,
+  max: 100,
 });
 app.use(limiter);
 
 // Stricter rate limiting for sensitive routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5, // 5 attempts per 15 min
+  max: 5,
   message: "Too many attempts, please try again later.",
 });
+
 app.use("/api/admin/auth/login", authLimiter);
 app.use("/api/admin/auth/request-password-reset", authLimiter);
 app.use("/api/auth/login", authLimiter);
@@ -57,7 +57,7 @@ app.use("/api/auth/forgot-password", authLimiter);
 ========================================= */
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://www.azaniaShop.com",
+    origin: process.env.FRONTEND_URL || "https://azaniashop.com",
     credentials: true,
   })
 );
@@ -91,13 +91,14 @@ app.use((req, res, next) => {
 /* =========================================
    🚀 ROUTES
 ========================================= */
+
+// Health check
 app.get("/", (req, res) => {
   res.send("🚀 Azania API is running...");
 });
 
 // Auth Routes
-app.use("/api/auth", authRoutes);       // register, login
-app.use("/api/auth", passwordRoutes);   // forgot/reset password
+app.use("/api/auth", authRoutes);
 
 // User/Admin Routes
 app.use("/api/users", userRoutes);
