@@ -3,17 +3,30 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Routes
 import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
-import authRoutes from "./routes/authRoutes.js"; // user/vendor auth
+import authRoutes from "./routes/authRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import payfastRoutes from "./routes/payfastRoutes.js";
 import refundRoutes from "./routes/refundRoutes.js";
 
 const app = express();
+
+/* =========================================
+   📁 STATIC FILES (LOGO, IMAGES, ETC.)
+========================================= */
+
+// Fix __dirname for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve files from /public
+app.use(express.static(path.join(__dirname, "../public")));
 
 /* =========================================
    🔐 SECURITY MIDDLEWARE
@@ -27,6 +40,7 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         objectSrc: ["'none'"],
+        imgSrc: ["'self'", "data:", "https:"], // 👈 allow images (important for logo)
         upgradeInsecureRequests: [],
       },
     },
@@ -55,6 +69,7 @@ app.use("/api/auth/forgot-password", authLimiter);
 /* =========================================
    🌍 CORS CONFIG
 ========================================= */
+
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "https://azaniashop.com",
@@ -65,12 +80,14 @@ app.use(
 /* =========================================
    📦 BODY PARSING
 ========================================= */
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================================
    🔒 FORCE HTTPS (Production)
 ========================================= */
+
 if (process.env.NODE_ENV === "production") {
   app.use((req, res, next) => {
     if (req.headers["x-forwarded-proto"] !== "https") {
@@ -83,6 +100,7 @@ if (process.env.NODE_ENV === "production") {
 /* =========================================
    📄 LOGGER
 ========================================= */
+
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
@@ -113,6 +131,7 @@ app.use("/api/refunds", refundRoutes);
 /* =========================================
    ❌ 404 HANDLER
 ========================================= */
+
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -123,6 +142,7 @@ app.use((req, res) => {
 /* =========================================
    ⚠️ GLOBAL ERROR HANDLER
 ========================================= */
+
 app.use((err, req, res, next) => {
   console.error("🔥 ERROR:", err.stack);
 
