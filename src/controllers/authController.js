@@ -7,10 +7,22 @@ import Admin from "../models/Admin.js";
 import Store from "../models/Store.js";
 
 /* =========================================
+   ROLES (Single source of truth)
+========================================= */
+const ROLES = {
+  CUSTOMER: "customer",
+  VENDOR: "vendor_owner",
+  STAFF: "staff",
+  ADMIN: "admin"
+};
+
+/* =========================================
    HELPER: Generate JWT
 ========================================= */
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
+    expiresIn: "1d"
+  });
 };
 
 /* =========================================
@@ -23,10 +35,19 @@ export const registerUser = async (req, res, next) => {
 
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: "User already exists" });
+      return res.status(400).json({
+        success: false,
+        message: "User already exists"
+      });
     }
 
-    const user = await User.create({ name, email: normalizedEmail, password, role: "user" });
+    // ✅ FIXED ROLE
+    const user = await User.create({
+      name,
+      email: normalizedEmail,
+      password,
+      role: ROLES.CUSTOMER
+    });
 
     const token = generateToken(user._id, user.role);
 
@@ -36,7 +57,7 @@ export const registerUser = async (req, res, next) => {
       name: user.name,
       email: user.email,
       role: user.role,
-      token,
+      token
     });
   } catch (err) {
     next(err);
@@ -53,15 +74,24 @@ export const registerVendor = async (req, res, next) => {
 
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: "Vendor already exists" });
+      return res.status(400).json({
+        success: false,
+        message: "Vendor already exists"
+      });
     }
 
-    const vendor = await User.create({ name, email: normalizedEmail, password, role: "vendor" });
+    // ✅ FIXED ROLE
+    const vendor = await User.create({
+      name,
+      email: normalizedEmail,
+      password,
+      role: ROLES.VENDOR
+    });
 
     const store = await Store.create({
       vendor: vendor._id,
       owner: vendor._id,
-      storeName: storeName || `${name}'s Store`,
+      storeName: storeName || `${name}'s Store`
     });
 
     const token = generateToken(vendor._id, vendor.role);
@@ -73,14 +103,14 @@ export const registerVendor = async (req, res, next) => {
         id: vendor._id,
         name: vendor.name,
         email: vendor.email,
-        role: vendor.role,
+        role: vendor.role
       },
       store: {
         id: store._id,
         storeName: store.storeName,
-        storeSlug: store.storeSlug,
+        storeSlug: store.storeSlug
       },
-      token,
+      token
     });
   } catch (err) {
     next(err);
@@ -89,7 +119,6 @@ export const registerVendor = async (req, res, next) => {
 
 /* =========================================
    ADMIN REGISTRATION
-   Only for creating admin accounts
 ========================================= */
 export const registerAdmin = async (req, res, next) => {
   try {
@@ -98,11 +127,19 @@ export const registerAdmin = async (req, res, next) => {
 
     const existingAdmin = await Admin.findOne({ email: normalizedEmail });
     if (existingAdmin) {
-      return res.status(400).json({ success: false, message: "Admin already exists" });
+      return res.status(400).json({
+        success: false,
+        message: "Admin already exists"
+      });
     }
 
-    const admin = await Admin.create({ fullName, email: normalizedEmail, password });
-    const token = generateToken(admin._id, "admin");
+    const admin = await Admin.create({
+      fullName,
+      email: normalizedEmail,
+      password
+    });
+
+    const token = generateToken(admin._id, ROLES.ADMIN);
 
     res.status(201).json({
       success: true,
@@ -111,9 +148,9 @@ export const registerAdmin = async (req, res, next) => {
         id: admin._id,
         fullName: admin.fullName,
         email: admin.email,
-        role: "admin",
+        role: ROLES.ADMIN
       },
-      token,
+      token
     });
   } catch (err) {
     next(err);
@@ -131,13 +168,13 @@ export const loginUser = async (req, res, next) => {
     let user = null;
     let role = null;
 
-    // Check admin first
+    // 🔹 Check admin first
     const admin = await Admin.findOne({ email: normalizedEmail });
     if (admin) {
       user = admin;
-      role = "admin";
+      role = ROLES.ADMIN;
     } else {
-      // Check regular users/vendors
+      // 🔹 Check users/vendors
       const foundUser = await User.findOne({ email: normalizedEmail });
       if (foundUser) {
         user = foundUser;
@@ -146,19 +183,28 @@ export const loginUser = async (req, res, next) => {
     }
 
     if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid email or password" });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email or password"
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ success: false, message: "Invalid email or password" });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email or password"
+      });
     }
 
     const token = generateToken(user._id, role);
 
     let store = null;
-    if (role === "vendor") {
-      store = await Store.findOne({ vendor: user._id }).select("_id storeName storeSlug");
+
+    // ✅ FIXED ROLE CHECK
+    if (role === ROLES.VENDOR) {
+      store = await Store.findOne({ vendor: user._id })
+        .select("_id storeName storeSlug");
     }
 
     res.json({
@@ -168,7 +214,7 @@ export const loginUser = async (req, res, next) => {
       email: user.email,
       role,
       token,
-      store,
+      store
     });
   } catch (err) {
     next(err);
