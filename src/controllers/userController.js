@@ -5,17 +5,20 @@ import jwt from "jsonwebtoken";
 /* =========================================
    LOGIN USER
 ========================================= */
-export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-
+export const loginUser = async (req, res, next) => {
   try {
+    const { email, password } = req.body;
+
     const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "Invalid credentials" });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
     const isMatch = await user.matchPassword(password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
-    // Generate JWT token
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
@@ -30,33 +33,33 @@ export const loginUser = async (req, res) => {
       token,
     });
   } catch (err) {
-    console.error("Error logging in user:", err);
-    res.status(500).json({ message: "Server error during login" });
+    next(err); // ✅ FIXED
   }
 };
 
 /* =========================================
    GET ALL USERS
 ========================================= */
-export const getUsers = async (req, res) => {
+export const getUsers = async (req, res, next) => {
   try {
-    const users = await User.find().select("-password"); // exclude passwords
+    const users = await User.find().select("-password");
     res.json(users);
   } catch (err) {
-    console.error("Error fetching users:", err);
-    res.status(500).json({ message: "Server error fetching users" });
+    next(err); // ✅ FIXED
   }
 };
 
 /* =========================================
    CREATE USER
 ========================================= */
-export const createUser = async (req, res) => {
-  const { name, email, password } = req.body;
-
+export const createUser = async (req, res, next) => {
   try {
+    const { name, email, password } = req.body;
+
     const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ message: "User already exists" });
+    if (userExists) {
+      return res.status(400).json({ message: "User already exists" });
+    }
 
     const user = await User.create({ name, email, password });
 
@@ -67,7 +70,6 @@ export const createUser = async (req, res) => {
       role: user.role,
     });
   } catch (err) {
-    console.error("Error creating user:", err);
-    res.status(500).json({ message: "Server error creating user" });
+    next(err); // ✅ FIXED
   }
 };
