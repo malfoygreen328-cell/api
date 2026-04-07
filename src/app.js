@@ -35,17 +35,10 @@ app.use(express.static(path.join(__dirname, "../public")));
 // Secure HTTP headers
 app.use(
   helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        imgSrc: ["'self'", "data:", "https:"], // 👈 allow images (important for logo)
-        upgradeInsecureRequests: [],
-      },
-    },
+    contentSecurityPolicy: false, // Disable if you have issues with inline scripts/styles
   })
 );
+
 
 // Global Rate Limiting
 const limiter = rateLimit({
