@@ -12,10 +12,10 @@ import Store from "../models/Store.js";
 const ROLES = {
   CUSTOMER: "customer",
   VENDOR: "vendor_owner",
-  STAFF: "staff",
-  ADMIN: "admin"
+  STAFF: "vendor_staff", // ✅ FIXED
+  ADMIN: "admin",
+  SUPERADMIN: "superadmin" // optional but recommended
 };
-
 /* =========================================
    HELPER: Generate JWT
 ========================================= */
