@@ -3,37 +3,102 @@ import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 
 /* =========================================
+   GENERATE TOKEN HELPER
+========================================= */
+const generateToken = (user) => {
+  return jwt.sign(
+    {
+      id: user._id,
+      role: user.role,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "1d" }
+  );
+};
+
+/* =========================================
+   REGISTER USER
+========================================= */
+export const createUser = async (req, res, next) => {
+  try {
+    const { name, email, password } = req.body;
+
+    // Validation
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    const userExists = await User.findOne({ email });
+
+    if (userExists) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists",
+      });
+    }
+
+    const user = await User.create({
+      name,
+      email,
+      password,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: generateToken(user),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/* =========================================
    LOGIN USER
 ========================================= */
 export const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
 
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
     }
-
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
 
     res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      token,
+      success: true,
+      message: "Login successful",
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: generateToken(user),
+      },
     });
   } catch (err) {
-    next(err); // ✅ FIXED
+    next(err);
   }
 };
 
@@ -43,33 +108,13 @@ export const loginUser = async (req, res, next) => {
 export const getUsers = async (req, res, next) => {
   try {
     const users = await User.find().select("-password");
-    res.json(users);
-  } catch (err) {
-    next(err); // ✅ FIXED
-  }
-};
 
-/* =========================================
-   CREATE USER
-========================================= */
-export const createUser = async (req, res, next) => {
-  try {
-    const { name, email, password } = req.body;
-
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    const user = await User.create({ name, email, password });
-
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
+    res.json({
+      success: true,
+      count: users.length,
+      data: users,
     });
   } catch (err) {
-    next(err); // ✅ FIXED
+    next(err);
   }
 };
