@@ -183,7 +183,7 @@ export const loginUser = async (req, res, next) => {
       role = ROLES.ADMIN;
     } else {
       // 🔹 Check users/vendors
-      const foundUser = await User.findOne({ email: normalizedEmail });
+      const foundUser = await User.findOne({ email: normalizedEmail }).select("+password");
       if (foundUser) {
         user = foundUser;
         role = foundUser.role;
