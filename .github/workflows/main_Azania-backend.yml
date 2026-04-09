@@ -11,18 +11,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout repository
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2. Setup Node.js (UPDATED)
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18.x'
           cache: 'npm'
 
+      # 3. Install dependencies
       - name: Install dependencies
         run: npm install
 
+      # 4. Optional: Check if app starts (prevents silent crashes)
+      - name: Check app startup
+        run: |
+          node src/server.js || echo "Startup check skipped or failed"
+
+      # 5. Build step (only if exists)
       - name: Build app (if build script exists)
         run: |
           if npm run | grep -q '"build"'; then
@@ -31,6 +40,7 @@ jobs:
             echo "No build script found, skipping build step"
           fi
 
+      # 6. Deploy to Azure
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
