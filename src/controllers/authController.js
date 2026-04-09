@@ -12,10 +12,11 @@ import Store from "../models/Store.js";
 const ROLES = {
   CUSTOMER: "customer",
   VENDOR: "vendor_owner",
-  STAFF: "vendor_staff", // ✅ FIXED
+  STAFF: "vendor_staff",
   ADMIN: "admin",
-  SUPERADMIN: "superadmin" // optional but recommended
+  SUPERADMIN: "superadmin"
 };
+
 /* =========================================
    HELPER: Generate JWT
 ========================================= */
@@ -41,11 +42,13 @@ export const registerUser = async (req, res, next) => {
       });
     }
 
-    // ✅ FIXED ROLE
+    // ✅ HASH PASSWORD
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const user = await User.create({
       name,
       email: normalizedEmail,
-      password,
+      password: hashedPassword,
       role: ROLES.CUSTOMER
     });
 
@@ -80,11 +83,13 @@ export const registerVendor = async (req, res, next) => {
       });
     }
 
-    // ✅ FIXED ROLE
+    // ✅ HASH PASSWORD
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const vendor = await User.create({
       name,
       email: normalizedEmail,
-      password,
+      password: hashedPassword,
       role: ROLES.VENDOR
     });
 
@@ -133,10 +138,13 @@ export const registerAdmin = async (req, res, next) => {
       });
     }
 
+    // ✅ HASH PASSWORD
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const admin = await Admin.create({
       fullName,
       email: normalizedEmail,
-      password
+      password: hashedPassword
     });
 
     const token = generateToken(admin._id, ROLES.ADMIN);
@@ -189,7 +197,16 @@ export const loginUser = async (req, res, next) => {
       });
     }
 
+    // 🔒 Safety check
+    if (!user.password) {
+      return res.status(500).json({
+        success: false,
+        message: "User password missing"
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
       return res.status(400).json({
         success: false,
@@ -201,7 +218,6 @@ export const loginUser = async (req, res, next) => {
 
     let store = null;
 
-    // ✅ FIXED ROLE CHECK
     if (role === ROLES.VENDOR) {
       store = await Store.findOne({ vendor: user._id })
         .select("_id storeName storeSlug");
