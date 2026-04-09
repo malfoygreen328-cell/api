@@ -28,12 +28,14 @@ const generateToken = (id, role) => {
 
 /* =========================================
    USER REGISTRATION
+   ✅ Pass plain password - User model handles hashing
 ========================================= */
 export const registerUser = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
     const normalizedEmail = email.toLowerCase();
 
+    // Check if user exists
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({
@@ -42,13 +44,11 @@ export const registerUser = async (req, res, next) => {
       });
     }
 
-    // ✅ HASH PASSWORD
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+    // Create user - plain password, model will hash it
     const user = await User.create({
       name,
       email: normalizedEmail,
-      password: hashedPassword,
+      password, // Plain password
       role: ROLES.CUSTOMER
     });
 
@@ -69,12 +69,14 @@ export const registerUser = async (req, res, next) => {
 
 /* =========================================
    VENDOR REGISTRATION
+   ✅ Pass plain password - User model handles hashing
 ========================================= */
 export const registerVendor = async (req, res, next) => {
   try {
     const { name, email, password, storeName } = req.body;
     const normalizedEmail = email.toLowerCase();
 
+    // Check if vendor exists
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({
@@ -83,16 +85,15 @@ export const registerVendor = async (req, res, next) => {
       });
     }
 
-    // ✅ HASH PASSWORD
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+    // Create vendor - plain password, model will hash it
     const vendor = await User.create({
       name,
       email: normalizedEmail,
-      password: hashedPassword,
+      password, // Plain password
       role: ROLES.VENDOR
     });
 
+    // Create store for vendor
     const store = await Store.create({
       vendor: vendor._id,
       owner: vendor._id,
@@ -124,12 +125,14 @@ export const registerVendor = async (req, res, next) => {
 
 /* =========================================
    ADMIN REGISTRATION
+   ✅ Pass plain password - Admin model handles hashing
 ========================================= */
 export const registerAdmin = async (req, res, next) => {
   try {
     const { fullName, email, password } = req.body;
     const normalizedEmail = email.toLowerCase();
 
+    // Check if admin exists
     const existingAdmin = await Admin.findOne({ email: normalizedEmail });
     if (existingAdmin) {
       return res.status(400).json({
@@ -138,13 +141,11 @@ export const registerAdmin = async (req, res, next) => {
       });
     }
 
-    // ✅ HASH PASSWORD
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+    // Create admin - plain password, Admin model will hash it
     const admin = await Admin.create({
       fullName,
       email: normalizedEmail,
-      password: hashedPassword
+      password // Plain password
     });
 
     const token = generateToken(admin._id, ROLES.ADMIN);
@@ -167,6 +168,7 @@ export const registerAdmin = async (req, res, next) => {
 
 /* =========================================
    LOGIN (User / Vendor / Admin)
+   ✅ CRITICAL: Must use .select("+password") for both User and Admin
 ========================================= */
 export const loginUser = async (req, res, next) => {
   try {
@@ -176,13 +178,22 @@ export const loginUser = async (req, res, next) => {
     let user = null;
     let role = null;
 
-    // 🔹 Check admin first
-    const admin = await Admin.findOne({ email: normalizedEmail });
+    // 🔹 Check admin first - MUST include .select("+password")
+    const admin = await Admin.findOne({ email: normalizedEmail }).select("+password");
+    
     if (admin) {
+      // Check if admin account is active
+      if (!admin.isActive) {
+        return res.status(401).json({
+          success: false,
+          message: "Admin account is disabled. Please contact support."
+        });
+      }
+      
       user = admin;
-      role = ROLES.ADMIN;
+      role = admin.role === "superadmin" ? ROLES.SUPERADMIN : ROLES.ADMIN;
     } else {
-      // 🔹 Check users/vendors
+      // 🔹 Check users/vendors - MUST include .select("+password")
       const foundUser = await User.findOne({ email: normalizedEmail }).select("+password");
       if (foundUser) {
         user = foundUser;
@@ -190,39 +201,66 @@ export const loginUser = async (req, res, next) => {
       }
     }
 
+    // No user found
     if (!user) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
         message: "Invalid email or password"
       });
     }
 
-    // 🔒 Safety check
+    // Safety check - password should exist
     if (!user.password) {
+      console.error("User found but password field is missing:", user._id);
       return res.status(500).json({
         success: false,
-        message: "User password missing"
+        message: "Account configuration error. Please contact support."
       });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    // ✅ Compare password using the model's method
+    let isMatch = false;
+    
+    try {
+      // Use the model's matchPassword method if available
+      if (typeof user.matchPassword === 'function') {
+        isMatch = await user.matchPassword(password);
+      } else {
+        // Fallback to direct bcrypt comparison
+        isMatch = await bcrypt.compare(password, user.password);
+      }
+    } catch (compareError) {
+      console.error("Password comparison error:", compareError);
+      return res.status(500).json({
+        success: false,
+        message: "Error verifying credentials. Please try again."
+      });
+    }
 
+    // Password doesn't match
     if (!isMatch) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
         message: "Invalid email or password"
       });
     }
 
+    // ✅ Update last login for admin
+    if (role === ROLES.ADMIN || role === ROLES.SUPERADMIN) {
+      await Admin.findByIdAndUpdate(user._id, { lastLogin: new Date() });
+    }
+
+    // ✅ Generate token
     const token = generateToken(user._id, role);
 
+    // ✅ Get store info for vendors
     let store = null;
-
     if (role === ROLES.VENDOR) {
       store = await Store.findOne({ vendor: user._id })
         .select("_id storeName storeSlug");
     }
 
+    // ✅ Send success response
     res.json({
       success: true,
       id: user._id,
@@ -230,9 +268,69 @@ export const loginUser = async (req, res, next) => {
       email: user.email,
       role,
       token,
-      store
+      store,
+      ...(role === ROLES.ADMIN || role === ROLES.SUPERADMIN ? {
+        isActive: user.isActive
+      } : {})
+    });
+  } catch (err) {
+    console.error("Login error details:", err);
+    next(err);
+  }
+};
+
+/* =========================================
+   GET CURRENT USER (Protected Route)
+========================================= */
+export const getMe = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      user
     });
   } catch (err) {
     next(err);
   }
+};
+
+/* =========================================
+   GET CURRENT ADMIN (Protected Route)
+========================================= */
+export const getCurrentAdmin = async (req, res, next) => {
+  try {
+    const admin = await Admin.findById(req.user.id).select("-password");
+    
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      admin
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/* =========================================
+   LOGOUT (Client-side only - token removal)
+========================================= */
+export const logout = async (req, res) => {
+  res.json({
+    success: true,
+    message: "Logged out successfully"
+  });
 };
