@@ -17,6 +17,9 @@ import refundRoutes from "./routes/refundRoutes.js";
 
 const app = express();
 
+// 🔥 CRITICAL FIX: Trust Azure proxy (FIXES rate-limit + HTTPS issues)
+app.set("trust proxy", 1);
+
 /* =========================================
    📁 STATIC FILES (LOGO, IMAGES, ETC.)
 ========================================= */
@@ -35,25 +38,32 @@ app.use(express.static(path.join(__dirname, "../public")));
 // Secure HTTP headers
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Disable if you have issues with inline scripts/styles
+    contentSecurityPolicy: false,
   })
 );
 
-
-// Global Rate Limiting
+// 🌍 Global Rate Limiting (improved)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000, // 15 min
   max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use(limiter);
 
-// Stricter rate limiting for sensitive routes
+// 🔐 Stricter rate limiting for sensitive routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  message: "Too many attempts, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many attempts, please try again later.",
+  },
 });
 
+// Apply auth limiter
 app.use("/api/admin/auth/login", authLimiter);
 app.use("/api/admin/auth/request-password-reset", authLimiter);
 app.use("/api/auth/login", authLimiter);
@@ -78,11 +88,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================================
-   🔒 FORCE HTTPS (Production)
+   🔒 FORCE HTTPS (Production - Azure Safe)
 ========================================= */
 
 if (process.env.NODE_ENV === "production") {
   app.use((req, res, next) => {
+    // ✅ Now works correctly because trust proxy is enabled
     if (req.headers["x-forwarded-proto"] !== "https") {
       return res.redirect(`https://${req.headers.host}${req.url}`);
     }
